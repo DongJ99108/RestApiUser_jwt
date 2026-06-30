@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>REST API User CRUD + JWT</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+    <style>
+        main { width: 80%; margin:30px auto;}
+        table, th, td { border-collapse: collapse; border: 1px solid #ccc; }
+        th, td { padding: 10px; text-align: center; }
+        #div1 { margin-top: 30px; margin-bottom: 200px; }
+        #list button {border:0; background: #fff;}
+        #list tr:hover:not(:first-child) { background: yellow; }
+        .form-table input { width:260px; }
+        .message { margin-top:15px; font-weight: 600; white-space: pre-wrap; }
+        .error { color: #b00020; }
+        .success { color: #0a6b2b; }
+        .login-box { border: 1px solid #ddd; padding: 16px; border-radius: 8px; margin-bottom: 20px; }
+        .token-box { font-size: 12px; word-break: break-all; color:#555; }
+    </style>
+</head>
+<body>
+<main>
+    <h2>회원 REST API Test + JWT</h2>
+
+    <section class="login-box">
+        <h5>로그인</h5>
+        <div class="row g-2 align-items-center">
+            <div class="col-auto">아이디</div>
+            <div class="col-auto"><input type="text" id="loginUserid" class="form-control form-control-sm" value="admin"></div>
+            <div class="col-auto">암호</div>
+            <div class="col-auto"><input type="password" id="loginPasswd" class="form-control form-control-sm" value="admin1234"></div>
+            <div class="col-auto"><button id="btnLogin" class="btn btn-primary btn-sm">로그인</button></div>
+            <div class="col-auto"><button id="btnRefresh" class="btn btn-secondary btn-sm">토큰 재발급</button></div>
+            <div class="col-auto"><button id="btnLogout" class="btn btn-outline-danger btn-sm">로그아웃</button></div>
+        </div>
+        <div class="token-box mt-2">
+            <div>Access Token: <span id="accessTokenView">없음</span></div>
+            <div>Refresh Token: <span id="refreshTokenView">없음</span></div>
+        </div>
+    </section>
+
+    <form id="form1">
+        <table class="form-table">
+            <tr>
+                <td>아이디</td>
+                <td><input type="text" id="userid" required></td>
+            </tr>
+            <tr>
+                <td>암호</td>
+                <td><input type="password" id="passwd" required></td>
+            </tr>
+            <tr>
+                <td>이름</td>
+                <td><input type="text" id="username" required></td>
+            </tr>
+            <tr>
+                <td>이메일</td>
+                <td><input type="email" id="email"></td>
+            </tr>
+            <tr>
+                <td>가입일</td>
+                <td><input type="text" id="indate" readonly></td>
+            </tr>
+            <tr>
+                <td colspan="2">
+                    <a id="btnInsert" href="#" class="btn btn-primary btn-sm">추가/회원가입</a>
+                    <a id="btnUpdate" href="#" class="btn btn-warning btn-sm">수정</a>
+                    <a id="btnDelete" href="#" class="btn btn-danger btn-sm">삭제</a>
+                    <input type="button" id="btnClear" class="btn btn-info btn-sm" value="Clear" />
+                </td>
+            </tr>
+        </table>
+    </form>
+
+    <div id="message" class="message"></div>
+    <hr>
+
+    <div>
+        아이디 <input type="text" id="text" placeholder="검색어"/>
+        <button id="btnOk" class="btn btn-secondary btn-sm">검색</button>
+    </div>
+
+    <div id="div1"></div>
+</main>
+
+<script>
+    const API_URL = '/api/users';
+    const AUTH_URL = '/api/auth';
+
+    let accessToken = localStorage.getItem('accessToken') || '';
+    let refreshToken = localStorage.getItem('refreshToken') || '';
+
+    function setMessage(text, success = true) {
+        const messageEl = document.getElementById('message');
+        messageEl.textContent = text;
+        messageEl.className = success ? 'message success' : 'message error';
+    }
+
+    function updateTokenView() {
+        document.getElementById('accessTokenView').textContent = accessToken ? accessToken.substring(0, 35) + '...' : '없음';
+        document.getElementById('refreshTokenView').textContent = refreshToken ? refreshToken.substring(0, 35) + '...' : '없음';
+    }
+
+    function saveTokens(authResponse) {
+        accessToken = authResponse.accessToken || '';
+        refreshToken = authResponse.refreshToken || '';
+        localStorage.setItem('accessToken', accessToken);
+        localStorage.setItem('refreshToken', refreshToken);
+        updateTokenView();
+    }
+
+    function clearTokens() {
+        accessToken = '';
+        refreshToken = '';
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        updateTokenView();
+    }
+
+    function authHeaders() {
+        return accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+    }
+
+    function jsonHeaders() {
+        return {
+            'Content-Type': 'application/json; charset=UTF-8',
+            ...authHeaders()
+        };
+    }
+
+    async function requestJson(url, options = {}, retry = true) {
+        const response = await fetch(url, options);
+        const data = await response.json().catch(() => null);
+
+        if (response.status === 401 && retry && refreshToken) {
+            await refreshAccessToken();
+            const retryOptions = {
+                ...options,
+                headers: {
+                    ...(options.headers || {}),
+                    ...authHeaders()
+                }
+            };
+            return requestJson(url, retryOptions, false);
+        }
+
+        if (!response.ok) {
+            throw new Error(data?.message || `HTTP ${response.status}`);
+        }
+        return data;
+    }
+
+    async function login() {
+        const body = {
+            userid: document.getElementById('loginUserid').value.trim(),
+            passwd: document.getElementById('loginPasswd').value
+        };
+        const data = await requestJson(`${AUTH_URL}/login`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json; charset=UTF-8'},
+            body: JSON.stringify(body)
+        }, false);
+        saveTokens(data);
+        setMessage(`${data.user.userid} 사용자로 로그인되었습니다`);
+        await getUsers();
+    }
+
+    async function refreshAccessToken() {
+        if (!refreshToken) {
+            throw new Error('Refresh Token이 없습니다. 다시 로그인하세요.');
+        }
+        const data = await requestJson(`${AUTH_URL}/refresh`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json; charset=UTF-8'},
+            body: JSON.stringify({refreshToken})
+        }, false);
+        saveTokens(data);
+        setMessage('Access Token과 Refresh Token을 재발급했습니다');
+        return data;
+    }
+
+    async function logout() {
+        if (refreshToken) {
+            await requestJson(`${AUTH_URL}/logout`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json; charset=UTF-8'},
+                body: JSON.stringify({refreshToken})
+            }, false).catch(() => null);
+        }
+        clearTokens();
+        setMessage('로그아웃되었습니다');
+    }
+
+    function table_header() {
+        return `
+           <tr>
+             <th>아이디</th>
+             <th>이름</th>
+             <th>이메일</th>
+             <th>권한</th>
+             <th>가입일</th>
+             <th>삭제</th>
+           </tr>
+        `;
+    }
+
+    function datalist_display(datalist) {
+        let html = '<table id="list" class="table table-striped">';
+        html += table_header();
+
+        datalist.forEach(user => {
+            html += `
+                <tr>
+                  <td>${user.userid}</td>
+                  <td>${user.username}</td>
+                  <td>${user.email ?? ''}</td>
+                  <td>${user.role}</td>
+                  <td>${user.indate}</td>
+                  <td><button type="button" class="btnDel">🗑</button></td>
+                </tr>
+            `;
+        });
+        html += '</table>';
+        document.getElementById('div1').innerHTML = html;
+    }
+
+    function text_clear() {
+        document.getElementById('userid').value = '';
+        document.getElementById('passwd').value = '';
+        document.getElementById('username').value = '';
+        document.getElementById('email').value = '';
+        document.getElementById('indate').value = '';
+        document.getElementById('userid').focus();
+    }
+
+    function formData() {
+        return {
+            userid: document.getElementById('userid').value.trim(),
+            passwd: document.getElementById('passwd').value,
+            username: document.getElementById('username').value.trim(),
+            email: document.getElementById('email').value.trim()
+        };
+    }
+
+    async function getUsers() {
+        const keyword = document.getElementById('text').value.trim();
+        const url = keyword ? `${API_URL}?keyword=${encodeURIComponent(keyword)}` : API_URL;
+        const datalist = await requestJson(url, {headers: authHeaders()});
+        datalist_display(datalist);
+    }
+
+    async function data_insert() {
+        const data = formData();
+        await requestJson(API_URL, {
+            method: 'POST',
+            body: JSON.stringify(data),
+            headers: {'Content-Type': 'application/json; charset=UTF-8'}
+        });
+        setMessage('회원가입이 완료되었습니다. 가입한 계정으로 로그인할 수 있습니다.');
+        text_clear();
+        if (accessToken) await getUsers();
+    }
+
+    async function data_update() {
+        const data = formData();
+        if (!data.userid) throw new Error('수정할 아이디를 선택하세요');
+        await requestJson(`${API_URL}/${encodeURIComponent(data.userid)}`, {
+            method: 'PUT',
+            body: JSON.stringify({passwd: data.passwd, username: data.username, email: data.email}),
+            headers: jsonHeaders()
+        });
+        setMessage('수정되었습니다');
+        await getUsers();
+    }
+
+    async function data_delete(userid = null) {
+        const targetUserid = userid || document.getElementById('userid').value.trim();
+        if (!targetUserid) throw new Error('삭제할 아이디를 선택하세요');
+        if (!confirm(`${targetUserid} 사용자를 삭제할까요?`)) return;
+        await requestJson(`${API_URL}/${encodeURIComponent(targetUserid)}`, {
+            method: 'DELETE',
+            headers: authHeaders()
+        });
+        setMessage('삭제되었습니다');
+        text_clear();
+        await getUsers();
+    }
+
+    window.onload = function(){
+        updateTokenView();
+
+        document.getElementById('btnLogin').onclick = async () => {
+            try { await login(); } catch (err) { setMessage(err.message, false); }
+        };
+        document.getElementById('btnRefresh').onclick = async () => {
+            try { await refreshAccessToken(); } catch (err) { setMessage(err.message, false); }
+        };
+        document.getElementById('btnLogout').onclick = async () => {
+            try { await logout(); } catch (err) { setMessage(err.message, false); }
+        };
+
+        document.getElementById('btnOk').onclick = async function() {
+            try { await getUsers(); } catch(err) { setMessage(err.message, false); }
+        };
+
+        document.querySelector('#div1').addEventListener('dblclick', event => {
+            const tr = event.target.closest('tr');
+            if (!tr || tr.querySelector('th')) return;
+
+            const tds = tr.children;
+            document.getElementById('userid').value = tds[0].innerHTML;
+            document.getElementById('username').value = tds[1].innerHTML;
+            document.getElementById('email').value = tds[2].innerHTML;
+            document.getElementById('indate').value = tds[4].innerHTML;
+        });
+
+        document.querySelector('#div1').addEventListener('click', async event => {
+            if (!event.target.classList.contains('btnDel')) return;
+            const userid = event.target.closest('tr').children[0].innerHTML;
+            try { await data_delete(userid); } catch (err) { setMessage(err.message, false); }
+        });
+
+        document.getElementById('btnInsert').addEventListener('click', async function(event) {
+            event.preventDefault();
+            try { await data_insert(); } catch (err) { setMessage(err.message, false); }
+        });
+
+        document.getElementById('btnUpdate').addEventListener('click', async function(event) {
+            event.preventDefault();
+            try { await data_update(); } catch (err) { setMessage(err.message, false); }
+        });
+
+        document.getElementById('btnDelete').addEventListener('click', async function(event) {
+            event.preventDefault();
+            try { await data_delete(); } catch (err) { setMessage(err.message, false); }
+        });
+
+        document.getElementById('btnClear').addEventListener('click', text_clear);
+
+        if (accessToken) {
+            getUsers().catch(err => setMessage(err.message, false));
+        } else {
+            setMessage('목록 조회/수정/삭제는 로그인 후 가능합니다. 회원가입은 토큰 없이 가능합니다.');
+        }
+    }
+</script>
+</body>
+</html>

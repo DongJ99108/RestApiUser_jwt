@@ -1,0 +1,44 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: PrjAjaxCRUD-restapi-boot4-jpa-oracle-jwt
+
+  web:
+    resources:
+      static-locations:
+        - file:src/main/resources/static/
+        - classpath:/static/
+      cache:
+        period: 0
+      # html 소스, style 새로고침
+
+  datasource:
+    driver-class-name: oracle.jdbc.OracleDriver
+    url: jdbc:oracle:thin:@localhost:11521/FREEPDB1
+    username: spring
+    password: 1234
+
+  jpa:
+    database-platform: org.hibernate.dialect.OracleDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+app:
+  jwt:
+    issuer: rest-api-user
+    # HS256은 최소 32바이트 이상의 비밀키를 사용하는 것이 안전합니다.
+    # 수업용 예제이므로 운영 환경에서는 반드시 환경변수로 분리하세요.
+    secret: change-this-secret-key-for-jwt-demo-please-use-env-value-32bytes
+    access-token-minutes: 30
+    refresh-token-days: 7
+
+logging:
+  level:
+    org.hibernate.SQL: debug
+    org.hibernate.orm.jdbc.bind: trace

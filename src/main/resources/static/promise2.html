@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+   <input type="text" id="userid" placeholder="userid 입력" >
+   <button id="btnGetData">Get Data</button>
+   <button id="btnGetData2">Get Data</button>
+   <button id="btnGetData3">Get Data</button>
+   <div id="div1"></div>
+
+   <script>
+     // http://localhost:8080/api/users?keyword=user
+     const btnGetDataEl  =  document.querySelector("#btnGetData");
+     const btnGetDataEl2 =  document.querySelector("#btnGetData2");
+     const btnGetDataEl3 =  document.querySelector("#btnGetData3");
+     const textEl        =  document.querySelector("#userid");
+     const div1EL        =  document.querySelector("#div1");
+
+     btnGetDataEl.onclick = function () {
+         let   url      =  '/api/users'
+         if( textEl.value != ""  ){
+               url     += '?keyword=' + textEl.value;
+         }
+         fetch(url)
+             .then(res => res.json())
+             .then(data => {
+                 console.log(data)
+                 div1EL.innerHTML = JSON.stringify(data);
+             })
+             .catch( err => console.log(err));
+     }
+
+     btnGetDataEl2.onclick = async function() {
+         let url =  '/api/users'
+         if( textEl.value != ""  ){
+             url     += '?keyword=' + textEl.value;
+         }
+
+         try {
+             const res = await fetch(url)
+             const data = await res.json()
+             console.log(data)
+             div1EL.innerHTML = JSON.stringify(data);
+         } catch(err) {
+             console.log(err)
+         }
+     }
+
+     async function loads( url ) {
+         try {
+             const res  = await fetch(url)
+             const data = await res.json()
+             console.log(data)
+             div1EL.innerHTML = JSON.stringify(data);
+         } catch(err) {
+             console.log(err)
+         }
+     }
+
+     btnGetDataEl3.onclick =  function() {
+         let url =  '/api/users'
+         if( textEl.value != ""  ){
+             url     += '?keyword=' + textEl.value;
+         }
+         loads( url );
+     }
+
+
+
+   </script>
+</body>
+</html>

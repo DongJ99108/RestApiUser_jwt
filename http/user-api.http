@@ -1,0 +1,70 @@
+### 회원가입 - 토큰 없이 가능
+POST http://localhost:8080/api/users
+Content-Type: application/json
+
+{
+  "userid": "test01",
+  "passwd": "1234",
+  "username": "테스트사용자",
+  "email": "test01@example.com"
+}
+
+### 로그인 - Access Token + Refresh Token 발급
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "userid": "admin",
+  "passwd": "admin1234"
+}
+
+### 아래 변수는 IntelliJ HTTP Client에서 로그인 응답의 accessToken 값을 복사해서 넣으세요.
+@accessToken = 여기에_accessToken_붙여넣기
+@refreshToken = 여기에_refreshToken_붙여넣기
+
+### 내 정보 조회
+GET http://localhost:8080/api/auth/me
+Authorization: Bearer {{accessToken}}
+
+### 전체 조회 - JWT 필요
+GET http://localhost:8080/api/users
+Authorization: Bearer {{accessToken}}
+
+### 아이디 검색 - JWT 필요
+GET http://localhost:8080/api/users?keyword=user
+Authorization: Bearer {{accessToken}}
+
+### 단건 조회 - JWT 필요
+GET http://localhost:8080/api/users/admin
+Authorization: Bearer {{accessToken}}
+
+### 수정 - JWT 필요
+PUT http://localhost:8080/api/users/test01
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "passwd": "5678",
+  "username": "수정사용자",
+  "email": "test01-updated@example.com"
+}
+
+### 삭제 - JWT 필요
+DELETE http://localhost:8080/api/users/test01
+Authorization: Bearer {{accessToken}}
+
+### Access Token 재발급 - Refresh Token 사용, Refresh Token도 회전 발급
+POST http://localhost:8080/api/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+### 로그아웃 - Refresh Token 폐기
+POST http://localhost:8080/api/auth/logout
+Content-Type: application/json
+
+{
+  "refreshToken": "{{refreshToken}}"
+}

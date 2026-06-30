@@ -1,0 +1,25 @@
+services:
+  oracle:
+    image: gvenzl/oracle-free:23-slim
+    container_name: prjajax-oracle
+    restart: unless-stopped
+    ports:
+      # host 1521 is already in use, so use 11521 on the host.
+      # Oracle inside the container still listens on 1521.
+      - "11521:1521"
+    environment:
+      ORACLE_PASSWORD: oracle
+      APP_USER: spring
+      APP_USER_PASSWORD: 1234
+      TZ: Asia/Seoul
+    volumes:
+      - prjajax-oracle-data:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+volumes:
+  prjajax-oracle-data:
