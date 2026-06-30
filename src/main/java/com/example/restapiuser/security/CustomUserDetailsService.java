@@ -20,6 +20,7 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     @Override
     @Transactional(readOnly = true)
+    // 넘어온 username 으로 UserEntity data를 조회 -> User 객체 저장
     public UserDetails loadUserByUsername(String userid) throws UsernameNotFoundException {
         UserEntity user = userRepository.findById(userid)
                 .orElseThrow(() -> new UsernameNotFoundException("존재하지 않는 사용자입니다: " + userid));

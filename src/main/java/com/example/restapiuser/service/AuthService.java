@@ -33,10 +33,27 @@ public class AuthService {
     }
 
     public AuthResponse login(LoginRequest request) {
+        // Spring security 내부의 AuthenticationManager 기능을 호출
+        // 기본 security 로그인 로직 자동으로 작동된다
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.userid(), request.passwd())
         );
+        // security/CustomUserDetailsService.java loadUserByUsername() 으로 db 조회
+        // 내부흐름
+        // AuthService
+        //     ↓
+        // AuthenticationManager
+        //     ↓
+        // DaoAuthenticationProvider : 자동 비교 UsernamePasswordAuthenticationToken == UserDetails
+        //     ↓
+        // CustomUserDetailsService : 수동 loadUserByUsername()
+        //     ↓
+        // userRepository
+        //     ↓
+        // PasswordEncoder.matches() : 자동
+        // 로그인 처리완료 상태
 
+        // 인증 성공 후 사용자 조회
         UserEntity user = userRepository.findById(request.userid())
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "로그인 정보가 올바르지 않습니다"));
 
